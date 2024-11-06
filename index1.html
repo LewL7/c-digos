@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pedidos de Categorias e Suplementos</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h2>Pedidos de Categorias e Suplementos</h2>
+    <form id="orderForm">
+        <div>
+            <label for="productCategory">Categoria do Produto:</label>
+            <select id="productCategory" required>
+                <option value="">Selecione uma Categoria</option>
+                <option value="Suplementos">Suplementos</option>
+                <option value="Acessórios">Acessórios</option>
+                <option value="Roupas">Roupas Fitness</option>
+                <option value="Equipamentos">Equipamentos</option>
+            </select>
+        </div>
+        <div>
+            <label for="itemName">Nome do Produto:</label>
+            <input type="text" id="itemName" placeholder="Nome do Produto" required />
+        </div>
+        <button type="submit">Adicionar Produto ao Pedido</button>
+        <button type="button" id="cancelOrderBtn" style="display: none;">Cancelar</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Categoria</th>
+                <th>Produto</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="ordersTable"></tbody>
+    </table>
+
+    <script>
+        let pedidoAtual = null;
+
+        function displayOrders() {
+            fetch('http://localhost:3001/pedidos')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById("ordersTable");
+                    tbody.innerHTML = "";
+                    data.forEach((pedido) => {
+                        const row = document.createElement("tr");
+                        row.innerHTML = `
+                            <td>${pedido.categoria}</td>
+                            <td>${pedido.item}</td>
+                            <td>
+                                <button onclick="editOrder(${pedido.id})">Alterar</button>
+                                <button onclick="deleteOrder(${pedido.id})">Remover</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Erro ao buscar pedidos:', error));
+        }
+
+        document.getElementById("orderForm").addEventListener("submit", function (event) {
+            event.preventDefault();
+            const pedido = {
+                categoria: document.getElementById("productCategory").value,
+                item: document.getElementById("itemName").value,
+            };
+
+            if (pedidoAtual !== null) {
+                fetch(`http://localhost:3001/pedidos/${pedidoAtual}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pedido)
+                })
+                .then(response => response.json())
+                .then(() => {
+                    pedidoAtual = null;
+                    document.getElementById("cancelOrderBtn").style.display = "none";
+                    displayOrders();
+                    document.getElementById("orderForm").reset();
+                })
+                .catch(error => console.error('Erro ao atualizar pedido:', error));
+            } else {
+                fetch('http://localhost:3001/pedidos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pedido)
+                })
+                .then(response => response.json())
+                .then(() => {
+                    displayOrders();
+                    document.getElementById("orderForm").reset();
+                })
+                .catch(error => console.error('Erro ao inserir pedido:', error));
+            }
+        });
+
+        function editOrder(id) {
+            pedidoAtual = id;
+            fetch(`http://localhost:3001/pedidos/${id}`)
+                .then(response => response.json())
+                .then(pedido => {
+                    document.getElementById("productCategory").value = pedido.categoria;
+                    document.getElementById("itemName").value = pedido.item;
+                    document.getElementById("cancelOrderBtn").style.display = "inline-block";
+                })
+                .catch(error => console.error('Erro ao buscar pedido para edição:', error));
+        }
+
+        function deleteOrder(id) {
+            fetch(`http://localhost:3001/pedidos/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(() => displayOrders())
+                .catch(error => console.error('Erro ao deletar pedido:', error));
+        }
+
+        document.getElementById("cancelOrderBtn").addEventListener("click", function () {
+            pedidoAtual = null;
+            document.getElementById("orderForm").reset();
+            this.style.display = "none";
+        });
+
+        window.onload = function() {
+            displayOrders();
+        };
+    </script>
+</body>
+</html>
